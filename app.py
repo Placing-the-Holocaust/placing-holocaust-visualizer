@@ -11,17 +11,39 @@ from collections import Counter
 @st.cache_data
 def load_data():
     df = pd.read_parquet("data/data_counts.parquet")
-    return df
+    experience_groups = df["Experience Group"].dropna().unique()
+    countries = df["Country"].dropna().unique()
+
+    experience_groups.sort()
+    countries.sort()
+    return df, experience_groups, countries
 
 # Function to generate a word cloud from a list of texts
 def generate_wordcloud(texts):
+    # Lowercase and strip each text
     texts = [text.lower().strip() for text in texts]
-    wordcloud = WordCloud(width = 800, height = 400, background_color ='white').generate(" ".join(texts))
-    plt.figure(figsize = (8, 4), facecolor = None) 
-    plt.imshow(wordcloud) 
-    plt.axis("off") 
-    plt.tight_layout(pad = 0) 
+    
+    # Join the texts into a single string
+    all_text = " ".join(texts)
+
+    # Generate the word cloud
+    wordcloud = WordCloud(width=800, height=400, background_color='white').generate(all_text)
+
+    # Display the word cloud using matplotlib
+    plt.figure(figsize=(8, 4), facecolor=None)
+    plt.imshow(wordcloud)
+    plt.axis("off")
+    plt.tight_layout(pad=0)
     st.pyplot(plt)
+
+    # Count the occurrences of each word
+    word_counts = Counter(all_text.split())
+
+    # Sort the dictionary by count number
+    sorted_word_counts = dict(sorted(word_counts.items(), key=lambda item: item[1], reverse=True))
+
+    # Display the sorted word counts
+    st.write(sorted_word_counts)
 
 # Assuming df has 'gender' and 'words' columns
 def generate_venn_diagram(df, category, topn):
@@ -62,8 +84,9 @@ def generate_venn_diagram(df, category, topn):
 
 st.title("Placing the Holocaust Visualizer")
 
-df = load_data()
+df, experience_groups, countries = load_data()
 
+st.write(df)
 # Categories to explore
 categories = [
     'BUILDING', 'NPIP', 'COUNTRY', 'POPULATED_PLACE', 'DLF', 
@@ -80,6 +103,18 @@ if style=="Testimony":
 category = st.sidebar.selectbox("Select Category", categories)
 
 gender_true = st.sidebar.checkbox("Gender")
+survivor_true = st.sidebar.checkbox("Survivor")
+country_selected = st.sidebar.multiselect("Country", countries)
+group_selected = st.sidebar.multiselect("Group", experience_groups)
+
+if survivor_true:
+    df = df[df["Experience Group"] == "Survivor"]
+if country_selected:
+    df = df.dropna(subset=['Country'])
+    df = df[df["Country"].isin(country_selected)]
+if group_selected:
+    df = df.dropna(subset=['Experience Group'])
+    df = df[df["Experience Group"].isin(group_selected)]
 
 if gender_true:
     topn = st.sidebar.number_input("Top-N", 1, 100)
